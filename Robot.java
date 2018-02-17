@@ -101,9 +101,9 @@ public class Robot extends IterativeRobot
 	}
 	
 	
-	public void devisgay(double a)
+	public void devisnay(double a)
 	{
-		dashboard.putString("in devgay", "Yup");
+		dashboard.putString("in devnay", "Yup");
 		
 		double start = timer.get();
 		double current = start;
@@ -130,6 +130,7 @@ public class Robot extends IterativeRobot
 	}
 
 	
-	public void testPeriodic() {
+	public void testPeriodic() 
+	{
 	}
 }
