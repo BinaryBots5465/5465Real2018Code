@@ -7,55 +7,64 @@
 
 package org.usfirst.frc.team5465.robot;
 
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.DigitalOutput;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
-public class Robot extends IterativeRobot 
-{	
-	private Joystick joy;
-	private RobotDrive drive;
-	private Timer timer = new Timer();
-	private static SmartDashboard dashboard;
-	private double counter = 0;
-	
-	public void robotInit()
-	{
-		joy = new Joystick(3);
-		drive = new RobotDrive();
-		timer.start();
-		dashboard.setDefaultNumber("Encoder 1", 0.0);
-		dashboard.setDefaultNumber("Encoder 2", 0.0);
-		dashboard.setDefaultNumber("Angle", 0.0);
-		dashboard.setDefaultNumber("SetPoint", 0.0);
-		dashboard.setDefaultNumber("Error", 0.0);
-		dashboard.setDefaultNumber("Distance", 0.0);
-		dashboard.setDefaultBoolean("Go to 60",false);
-	}
 
+public class Robot extends IterativeRobot 
+{
+	private Joystick joy;
+	private static SmartDashboard dashboard;
+	private RobotArm arm;
+	private RobotDrive drive;
+	private AutoDrive auto;
+	private RobotElevator elevator;
+	private DigitalInput armswitch;
+	private DigitalOutput rampswitch;
 	
-	public void autonomousInit() 
+	public void robotInit() 
 	{
+		drive = new RobotDrive();
+		auto = new AutoDrive(drive);
+		arm = new RobotArm();
+		//arm.start();
+		armswitch = new DigitalInput(0);
+		rampswitch = new DigitalOutput(1);
 		
+		elevator = new RobotElevator();
+		//elevator.start();
+		
+		joy = new Joystick(0);
+		
+		SmartDashboard.setDefaultNumber("Setpoint", 0.0);
+		SmartDashboard.setDefaultNumber("ArmEncoder", 0.0);
+		SmartDashboard.setDefaultBoolean("RampSwitch", false);
 	}
 	
-	public void autonomousPeriodic()
-	{
-		
-	}
-	public void dis()
+	@SuppressWarnings("static-access")
+	public void driveDis()
 	{
 		drive.resetEncoders();
 		drive.setpoint = 0.0;
 		drive.recalibrateGyro();
-		counter = 0;
 		dashboard.putNumber("Encoder 1", drive.getLMotorEncoder());
 		dashboard.putNumber("Encoder 2", drive.getRMotorEncoder());
 		dashboard.putNumber("Angle", drive.getAngle());
 		dashboard.putNumber("Setpoint", drive.getSetPoint());
 		dashboard.putNumber("Error", drive.getError());
 		dashboard.putNumber("Distance", drive.getDistance());
+	}
+	
+	public void dis()
+	{
+		arm.setDisabled(true);
+		//driveDis();
 	}
 	
 	public void disabledInit()
@@ -67,70 +76,55 @@ public class Robot extends IterativeRobot
 	{
 		dis();
 	}
+
+	public void autonomousInit() 
+	{
+		String gameData;
+		gameData = DriverStation.getInstance().getGameSpecificMessage();
+		boolean switchscale= SmartDashboard.getBoolean("ScaleorSwitch(Switch == Checked)", true);
+		String robotpose = SmartDashboard.getString("RobotStartSide:(L(Left), M(Middle), R(Right))", "");
+		if(gameData.length() == 3 && robotpose.length() == 1 && (robotpose.charAt(0) == 'L' || robotpose.charAt(0) == 'M' || robotpose.charAt(0) == 'R' ))
+		{
+			if(switchscale) RobotMap.autoinstructions = robotpose + "T" + gameData.substring(0, 2);
+			else RobotMap.autoinstructions = robotpose + "F" + gameData.substring(0,2);
+		}
+		
+		else RobotMap.autoinstructions = "";
+	}
+
+	public void autonomousPeriodic() 
+	{
+		auto.autoPeriodic();
+	}
+	
+	public void teleopInit()
+	{
+		arm.setDisabled(false);
+	}
 	
 	public void teleopPeriodic() 
 	{
-		if(dashboard.getBoolean("Go to 60", false))
-		{	
-			boolean ret = drive.autoDrive(60);
-			if(ret)
-			{
-				boolean ret1 = drive.autoTurn(90);
-				if(ret1)
-				{
-					dashboard.putBoolean("Go to 60", false);
-				}
-			}
-		}
+		boolean yes = !armswitch.get();
+		rampswitch.set(SmartDashboard.getBoolean("RampSwitch", false));
 		
-		else
-		{
-			double forward = -1*this.joy.getY();
-			double turn = this.joy.getZ();
-			
-			this.drive.teleopPIDDrive(forward, turn);
-		}
+		SmartDashboard.putBoolean("MagSwitchOnOff", yes);
 		
-		dashboard.putNumber("Encoder 1", drive.getLMotorEncoder());
-		dashboard.putNumber("Encoder 2", drive.getRMotorEncoder());
-		dashboard.putNumber("Angle", drive.getAngle());
-		dashboard.putNumber("Setpoint", drive.getSetPoint());
-		dashboard.putNumber("Error", drive.getError());
-		dashboard.putNumber("Distance", drive.getDistance());
-
-	}
-	
-	
-	public void devisnay(double a)
-	{
-		dashboard.putString("in devnay", "Yup");
+		SmartDashboard.putNumber("ElevatorEncoder", elevator.getSensorPosition());
+		double set = 0.5*(-1*joy.getRawAxis(3)+1)*4096.0;
+		//double set = -1*joy.getY();
 		
-		double start = timer.get();
-		double current = start;
+		int set1 = (int)set;
+		SmartDashboard.putNumber("Setpoint", set1);
+		elevator.setPosition(set1);
 		
-		double end = start + 3;
-		while(current < end)
-		{
-			drive.teleopPIDDrive(0.25, 0.0);
-			//drive.set(a*0.25, 0);
-			current = timer.get();
-		}
-	}
-	
-	public void delay(double seconds)
-	{
-		double start = timer.get();
-		double current = start;
-		
-		double end = start + seconds;
-		while(current < end)
-		{
-			current = timer.get();
-		}
+		/**
+		double forward = -1*this.joy.getY();
+		double turn = this.joy.getZ();
+		this.drive.teleopPIDDrive(forward, turn);**/
 	}
 
-	
 	public void testPeriodic() 
 	{
+		
 	}
 }

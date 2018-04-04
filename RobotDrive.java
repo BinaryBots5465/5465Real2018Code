@@ -7,7 +7,10 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 
-public class RobotDrive 
+import java.util.ArrayList;
+
+
+public class RobotDrive
 {
 	private TalonSRX l1;
 	private TalonSRX l2;
@@ -49,7 +52,7 @@ public class RobotDrive
 	}
 	
 
-	public void teleopPIDDrive(double forward, double turn)
+	public boolean teleopPIDDrive(double forward, double turn)
 	{
 		if(Math.abs(turn) > 0.05)
 		{
@@ -58,19 +61,21 @@ public class RobotDrive
 		}
 		else
 		{
-			//this.set(forward,0);
 			error = gyro.getAngle() - setpoint;
 			double add = error*kp;
-			//this.set(forward, 0);
+			//the right side is like that because of an inverted gearbox
 			this.setRaw(forward - add, -1*(forward + add));
 		}
+		return true;
 	}
 	
 	public boolean autoDrive(double target)
 	{
-		if(Math.abs(target -this.getDistance()) > 3)
+		double error = target -this.getDistance();
+		if(Math.abs(error) > 3)
 		{
-			teleopPIDDrive(0.15,0);
+			int sign = (int) (error/Math.abs(error));
+			this.teleopPIDDrive(sign*0.15,0);
 			return false;
 		}
 		else
@@ -82,10 +87,11 @@ public class RobotDrive
 	
 	public boolean autoTurn(double angle)
 	{
-		
-		if(Math.abs(angle - this.getAngle()) > 1)
+		double error = angle - this.getAngle();
+		if(Math.abs(error) > 1)
 		{
-			this.set(0.0, 0.15);
+			if(error < Math.abs(this.getAngle() - (angle - 360))) this.set(0.0, 0.15);
+			else this.set(0.0, 0.15);
 			return false;
 		}
 		else
@@ -93,7 +99,7 @@ public class RobotDrive
 			this.set(0.0, 0.0);
 			setpoint = this.getAngle();
 			return true;
-			}
+		}
 	}
 	
 	public double getError()
@@ -137,11 +143,6 @@ public class RobotDrive
 		return (((this.getLMotorEncoder()+this.getRMotorEncoder())*0.5)/4096.0)*Math.cos(this.error*Math.PI/180.0)*2*Math.PI*wheelradius;
 	}
 	
-	public void changeToAngle(double a)
-	{
-		
-	}
-	
 	public void resetEncoders()
 	{
 		l1.setSelectedSensorPosition(0, 0, 10);
@@ -150,6 +151,7 @@ public class RobotDrive
 	
 	public double getAngle()
 	{
-		return gyro.getAngle();
+		return gyro.getAngle()%360;
 	}
 }
+
